@@ -2,29 +2,29 @@
 
 namespace BenMajor\ExchangeRatesAPI;
 
-class Response
+final class Response
 {
     # The actual Guzzle response:
-    private $response;
+    private \GuzzleHttp\Psr7\Response $response;
     
     # Core response:
-    private $headers;
-    private $bodyRaw;
-    private $body;
+    private array $headers;
+    private string $bodyRaw;
+    private mixed $body;
     
     # Properties:
-    private $statusCode;
-    private $timestamp;
-    private $baseCurrency;
+    private int $statusCode;
+    private string $timestamp;
+    private string $baseCurrency;
     
-    private $rates = [ ];
+    private array $rates = [ ];
     
     function __construct( \GuzzleHttp\Psr7\Response $response = null )
     {
         $this->response = $response;
         
         $this->headers    = $response->getHeaders();
-        $this->bodyRaw    = (string) $response->getBody();
+        $this->bodyRaw    = $response->getBody()->getContents();
         $this->body       = json_decode( $this->bodyRaw );
         
         # Set our properties:
@@ -41,32 +41,32 @@ class Response
     /****************************/
     
     # Get the status code:
-    public function getStatusCode()
+    public function getStatusCode(): int
     {
         return (int) $this->statusCode;
     }
     
-    #ÊGet the timestamp of the request:
-    public function getTimestamp()
+    # Get the timestamp of the request:
+    public function getTimestamp(): string
     {
         return $this->timestamp;
     }
     
     # Get the base currency:
-    public function getBaseCurrency()
+    public function getBaseCurrency(): string
     {
         return $this->baseCurrency;
     }
     
     # Get the exchange rates:
-    public function getRates()
+    public function getRates(): mixed
     {
         # Convert the rates to a key / value array:
         return json_decode( json_encode($this->rates), true );
     }
     
     # Return a specific rate:
-    public function getRate( $code = null )
+    public function getRate( string $code = null ): float | null
     {
         $rates = $this->getRates();
         
@@ -84,8 +84,8 @@ class Response
         return null;
     }
     
-    #ÊConvert the response to JSON:
-    public function toJSON()
+    # Convert the response to JSON:
+    public function toJSON(): bool|string
     {
         return json_encode([
             'statusCode'   => $this->getStatusCode(),
@@ -93,5 +93,21 @@ class Response
             'baseCurrency' => $this->getBaseCurrency(),
             'rates'        => $this->getRates()
         ]);
+    }
+
+    /**
+     * @return \GuzzleHttp\Psr7\Response|null
+     */
+    public function getResponse(): ?\GuzzleHttp\Psr7\Response
+    {
+        return $this->response;
+    }
+
+    /**
+     * @return array
+     */
+    public function getHeaders(): array
+    {
+        return $this->headers;
     }
 }

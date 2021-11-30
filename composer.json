@@ -3,8 +3,9 @@
     "description": "An unofficial SDK for the ExchangeRatesAPI. (https://exchangeratesapi.io/)",
     "type": "library",
     "require": {
-        "php": ">= 7.0",
-        "guzzlehttp/guzzle": "^6.3 || ^7.0"
+        "php": ">= 8.0",
+        "guzzlehttp/guzzle": "^6.3 || ^7.0",
+        "ext-json": "*"
     },
     "license": "MIT",
     "authors": [

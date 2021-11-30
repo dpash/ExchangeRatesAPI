@@ -11,43 +11,46 @@
 
 namespace BenMajor\ExchangeRatesAPI;
 
-class ExchangeRatesAPI
+use \GuzzleHttp\Client;
+use GuzzleHttp\Exception\GuzzleException;
+
+final class ExchangeRatesAPI
 {
     # Default API URL:
     const API_URL_SSL = 'https://api.exchangerate.host/';
     
     # Free plan API URL:
     const API_URL_NON_SSL = 'http://api.exchangerate.host/';
-    
+
+    # Regular Expression for the date:
+    const DATE_REGEX = '/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/';
+
+    # Regular Expression for the currency:
+    const CURRENCY_REGEX = '/^[A-Z]{3}$/';
+
     # Fetch date
-    private $fetchDate;
+    private string $fetchDate;
 
     # Date from which to request historic rates:
-    private $dateFrom;
+    private string | null $dateFrom;
     
     # Date to which to request historic rates:
-    private $dateTo;
+    private string | null  $dateTo;
     
     # The base currency (default is EUR):
-    private $baseCurrency;
+    private string $baseCurrency;
     
     # Exchange rates to fetch
-    private $rates = [ ];
+    private array $rates = [ ];
     
     # Contains our Guzzle client:
-    private $client;
+    private Client $client;
     
     # The URL of the API:
-    private $apiURL = self::API_URL_SSL;
-    
-    # Regular Expression for the date:
-    private $dateRegExp = '/^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[1-2][0-9]|3[0-1])$/';
-    
-    # Regular Expression for the currency:
-    private $currencyRegExp = '/^[A-Z]{3}$/';
+    private string $apiURL = self::API_URL_SSL;
     
     # Supported currencies:
-    private $_currencies = [
+    private array $_currencies = [
         'AED', 'AFN', 'ALL', 'AMD', 'ANG', 'AOA', 'ARS', 'AUD',
         'AWG', 'AZN', 'BAM', 'BBD', 'BDT', 'BGN', 'BHD', 'BIF',
         'BMD', 'BND', 'BOB', 'BRL', 'BSD', 'BTC', 'BTN', 'BWP',
@@ -72,7 +75,7 @@ class ExchangeRatesAPI
         ];
     
     # Error messages:
-    private $_errors = [
+    private array $_errors = [
         'format.invalid_date'          => 'The specified date is invalid. Please use ISO 8601 notation (e.g. YYYY-MM-DD).',
         'format.invalid_currency_code' => 'The specified currency code (%s) is invalid. Please use ISO 4217 notation (e.g. EUR).',
         'format.unsupported_currency'  => 'The specified currency code (%s) is not currently supported.',
@@ -81,14 +84,14 @@ class ExchangeRatesAPI
     ];
     
     # ExchangeRatesAPI Access Key:
-    private $access_key;
+    private string $access_key;
     
     function __construct( string $access_key = null, bool $use_ssl = true )
     {
         $this->setAccessKey($access_key);
         $this->setUseSSL($use_ssl);
         
-        $this->client = new \GuzzleHttp\Client([ 'base_uri' => $this->apiURL ]);
+        $this->client = new Client([ 'base_uri' => $this->apiURL ]);
     }
     
     /****************************/
@@ -96,51 +99,53 @@ class ExchangeRatesAPI
     /*         GETTERS          */
     /*                          */
     /****************************/
-    
-    # Get the fetch date date:
-    public function getFetchDate()
+
+    /** Get the fetch date date:
+     * @return string|null
+     */
+    public function getFetchDate(): ?string
     {
         return $this->dateFrom;
     }
 
     # Get the "from" date:
-    public function getDateFrom()
+    public function getDateFrom(): ?string
     {
         return $this->dateFrom;
     }
     
     # Get the "to" date:
-    public function getDateTo()
+    public function getDateTo(): ?string
     {
         return $this->dateTo;
     }
     
     # Get the supported currencies:
-    public function getSupportedCurrencies( string $concat = null )
+    public function getSupportedCurrencies( string $concat = null ): array|string
     {
         return (is_null($concat)) ? $this->_currencies : implode($concat, $this->_currencies);
     }
     
     # Get the specified base currency:
-    public function getBaseCurrency()
+    public function getBaseCurrency(): string
     {
         return (is_null($this->baseCurrency)) ? 'EUR' : $this->baseCurrency;
     }
     
     # Get the rates:
-    public function getRates( string $concat = null )
+    public function getRates( string $concat = null ): array|string
     {
         return (! is_null($concat) ) ? implode($concat, $this->rates) : $this->rates;
     }
     
     # Get access key:
-    public function getAccessKey()
+    public function getAccessKey(): string
     {
         return $this->access_key;
     }
     
     # Get boolean flag for SSL usage:
-    public function getUseSSL()
+    public function getUseSSL(): bool
     {
         return ($this->apiURL == self::API_URL_SSL);
     }
@@ -151,68 +156,73 @@ class ExchangeRatesAPI
     /*                          */
     /****************************/
 
-    # set the fetch date
-    public function setFetchDate( string $date )
+    /** set the fetch date
+     * @throws Exception
+     */
+    public function setFetchDate(string $date ): ExchangeRatesAPI
     {
-        if( $this->validateDateFormat($date) )
-        {
-            $this->fetchDate = $date;
-
-            # Return object to preserve method-chaining:
-            return $this;
+        if(!$this->validateDateFormat($date)) {
+            throw new Exception($this->_errors['format.invalid_date']);
         }
 
-        throw new Exception( $this->_errors['format.invalid_date'] );
+        $this->fetchDate = $date;
+
+        # Return object to preserve method-chaining:
+        return $this;
     }
 
-    # Add a date-from:
-    public function addDateFrom( string $from )
+    /** Add a date-from:
+     * @throws Exception
+     */
+    public function addDateFrom(string $from ): ExchangeRatesAPI
     {
-        if( $this->validateDateFormat($from) )
-        {
-            $this->dateFrom = $from;
-            
-            # Return object to preserve method-chaining:
-            return $this;
+        if(!$this->validateDateFormat($from)) {
+            throw new Exception($this->_errors['format.invalid_date']);
         }
-        
-        throw new Exception( $this->_errors['format.invalid_date'] );
+
+        $this->dateFrom = $from;
+
+        # Return object to preserve method-chaining:
+        return $this;
     }
     
     # Remove a date-from:
-    public function removeDateFrom()
+    public function removeDateFrom(): ExchangeRatesAPI
     {
         $this->dateFrom = null;
         
         # Return object to preserve method-chaining:
         return $this;
     }
-    
-    # Add a date-to:
-    public function addDateTo( string $to )
+
+    /** Add a date-to:
+     * @throws Exception
+     */
+    public function addDateTo(string $to ): ExchangeRatesAPI
     {
-        if( $this->validateDateFormat($to) )
-        {
-            $this->dateTo = $to;
-            
-            # Return object to preserve method-chaining:
-            return $this;
+        if(!$this->validateDateFormat($to)) {
+            throw new Exception($this->_errors['format.invalid_date']);
         }
-        
-        throw new Exception( $this->_errors['format.invalid_date'] );
+
+        $this->dateTo = $to;
+
+        # Return object to preserve method-chaining:
+        return $this;
     }
     
     # Remove the date-to:
-    public function removeDateTo()
+    public function removeDateTo(): ExchangeRatesAPI
     {
         $this->dateTo = null;
         
         # Return object to preserve method-chaining:
         return $this;
     }
-    
-    # Check if a currency code is in the supported range:
-    public function currencyIsSupported( string $code )
+
+    /** Check if a currency code is in the supported range:
+     * @throws Exception
+     */
+    public function currencyIsSupported(string $code ): bool
     {
         $currencyCode = $this->sanitizeCurrencyCode($code);
         
@@ -223,9 +233,11 @@ class ExchangeRatesAPI
         
         return in_array( $currencyCode, $this->_currencies );
     }
-    
-    # Set the base currency:
-    public function setBaseCurrency( string $currency )
+
+    /** Set the base currency:
+     * @throws Exception
+     */
+    public function setBaseCurrency(string $currency ): ExchangeRatesAPI
     {
         # Sanitize the code:
         $currencyCode = $this->sanitizeCurrencyCode($currency);
@@ -239,8 +251,10 @@ class ExchangeRatesAPI
         return $this;
     }
 
-    # Add multiple currencies at once
-    public function addRates( array $currencies )
+    /** Add multiple currencies at once
+     * @throws Exception
+     */
+    public function addRates(array $currencies ): ExchangeRatesAPI
     {
         foreach ($currencies as $currency)
         {
@@ -249,8 +263,10 @@ class ExchangeRatesAPI
         return $this;
     }
 
-    # Add a currency to the returned rates:
-    public function addRate( string $currency )
+    /** Add a currency to the returned rates:
+     * @throws Exception
+     */
+    public function addRate(string $currency ): ExchangeRatesAPI
     {
         # Sanitize the code:
         $currencyCode = $this->sanitizeCurrencyCode($currency);
@@ -263,8 +279,10 @@ class ExchangeRatesAPI
         return $this;
     }
 
-    # Remove multiple currencies at once
-    public function removeRates( array $currencies )
+    /** Remove multiple currencies at once
+     * @throws Exception
+     */
+    public function removeRates(array $currencies ): ExchangeRatesAPI
     {
         foreach ($currencies as $currency)
         {
@@ -273,8 +291,10 @@ class ExchangeRatesAPI
         return $this;
     }
 
-    # Remove a currency from the returned rates:
-    public function removeRate( string $currency )
+    /** Remove a currency from the returned rates:
+     * @throws Exception
+     */
+    public function removeRate(string $currency ): ExchangeRatesAPI
     {
         # Sanitize the code:
         $currencyCode = $this->sanitizeCurrencyCode($currency);
@@ -296,21 +316,21 @@ class ExchangeRatesAPI
         # Copy the temp array to the rates:
         $this->rates = $newRates;
         
-        # Return object to preseve method chaining:
+        # Return object to preserve method chaining:
         return $this;
     }
     
     # Set access key:
-    public function setAccessKey( string $access_key = null )
+    public function setAccessKey( string $access_key = null ): ExchangeRatesAPI
     {
         $this->access_key = $access_key;
         
-        # Return object to preseve method chaining:
+        # Return object to preserve method chaining:
         return $this;
     }
 
     # Set SSL flag and API URL:
-    public function setUseSSL( bool $use_ssl = true )
+    public function setUseSSL( bool $use_ssl = true ): ExchangeRatesAPI
     {
         if ( $use_ssl )
         {
@@ -329,9 +349,11 @@ class ExchangeRatesAPI
     /*   API FUNCTION CALLS     */
     /*                          */
     /****************************/
-    
-    # Static function to quickly make a conversion:
-    public function convert( string $to, float $amount, $rounding = 2 )
+
+    /** Static function to quickly make a conversion:
+     * @throws Exception|GuzzleException
+     */
+    public function convert(string $to, float $amount, int $rounding = 2 ): float
     {
         $currencyTo = $this->sanitizeCurrencyCode($to);
         
@@ -356,9 +378,12 @@ class ExchangeRatesAPI
             $rounding
         );
     }
-    
-    # Send off the request:
-    public function fetch( $returnJSON = false, $parseJSON = true )
+
+    /** Send off the request:
+     * @throws GuzzleException
+     * @throws Exception
+     */
+    public function fetch(bool $returnJSON = false, bool $parseJSON = true ): Response | false | string
     {
         # Build the URL:
         $params = [ ];
@@ -410,19 +435,18 @@ class ExchangeRatesAPI
             
             $response = new Response( $guzzleResponse );
             
-            if( $returnJSON )
-            {
-                $json = $response->toJSON();
-                
-                if( $parseJSON )
-                {
-                    return json_decode( $json );
-                }
-                
+            if(!$returnJSON) {
+                return $response;
+            }
+
+            $json = $response->toJSON();
+
+            if (!$parseJSON) {
                 return $json;
             }
-            
-            return $response;
+
+            return json_decode($json);
+
         }
         catch( \Exception $e )
         {
@@ -437,41 +461,37 @@ class ExchangeRatesAPI
     /****************************/
     
     # Validate a date is in the correct format:
-    private function validateDateFormat( string $date = null )
+    private function validateDateFormat( string $date = null ): bool|int
     {
-        if( !is_null($date) )
-        {
-            return preg_match( $this->dateRegExp, $date);
+        if(is_null($date)) {
+            return false;
         }
-        
-        return false;
+        return preg_match(self::DATE_REGEX, $date);
+
     }
     
     # Validate a currency code is in the correct format:
-    private function validateCurrencyCodeFormat( string $code = null )
+    private function validateCurrencyCodeFormat( string $code = null ): bool
     {
-        if( !is_null($code) )
-        {
-            # Is the string longer than 3 characters?
-            if( strlen($code) != 3 )
-            {
-                return false;
-            }
-            
-            # Does it contain non-alphabetical characters?
-            if( ! preg_match( $this->currencyRegExp, $code) )
-            {
-                return false;
-            }
-            
-            return true;
+        if(is_null($code)) {
+            return false;
         }
-        
-        return false;
+
+        # Is the string longer than 3 characters?
+        if (strlen($code) != 3) {
+            return false;
+        }
+
+        # Does it contain non-alphabetical characters?
+        return (bool)preg_match(self::CURRENCY_REGEX, $code);
+
+
     }
-    
-    # Runs tests to verify a currency code:
-    private function verifyCurrencyCode( string $code )
+
+    /** Runs tests to verify a currency code:
+     * @throws Exception
+     */
+    private function verifyCurrencyCode(string $code ): void
     {
         $currencyCode = $this->sanitizeCurrencyCode($code);
         
@@ -489,7 +509,7 @@ class ExchangeRatesAPI
     }
     
     # Sanitize a currency code:
-    private function sanitizeCurrencyCode( string $code )
+    private function sanitizeCurrencyCode( string $code ): string
     {
         return trim(
             strtoupper( $code )
