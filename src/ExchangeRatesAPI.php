@@ -74,8 +74,8 @@ class ExchangeRatesAPI
     # Error messages:
     private $_errors = [
         'format.invalid_date'          => 'The specified date is invalid. Please use ISO 8601 notation (e.g. YYYY-MM-DD).',
-        'format.invalid_currency_code' => 'The specified currency code is invalid. Please use ISO 4217 notation (e.g. EUR).',
-        'format.unsupported_currency'  => 'The specified currency code is not currently supported.',
+        'format.invalid_currency_code' => 'The specified currency code (%s) is invalid. Please use ISO 4217 notation (e.g. EUR).',
+        'format.unsupported_currency'  => 'The specified currency code (%s) is not currently supported.',
         'format.invalid_amount'        => 'Conversion amount must be specified as a numeric value.',
         'format.invalid_rounding'      => 'Rounding precision must be specified as a numeric value.'
     ];
@@ -218,7 +218,7 @@ class ExchangeRatesAPI
         
         if( ! $this->validateCurrencyCodeFormat($currencyCode) )
         {
-            throw new Exception( $this->_errors['format.invalid_currency_code'] );
+            throw new Exception( sprintf($this->_errors['format.invalid_currency_code'], $currencyCode) );
         }
         
         return in_array( $currencyCode, $this->_currencies );
@@ -478,13 +478,13 @@ class ExchangeRatesAPI
         # Is the currency code in ISO 4217 format?
         if( ! $this->validateCurrencyCodeFormat($currencyCode) )
         {
-            throw new Exception( $this->_errors['format.invalid_currency_code'] );
+            throw new Exception( sprintf($this->_errors['format.invalid_currency_code'], $currencyCode) );
         }
         
         # Is it a supported currency?
         if( ! $this->currencyIsSupported($currencyCode) )
         {
-            throw new Exception( $this->_errors['format.unsupported_currency'] );
+            throw new Exception( sprintf($this->_errors['format.unsupported_currency'], $currencyCode) );
         }
     }
     
